@@ -11,7 +11,7 @@
 #include <WiFi.h>
 #include "esp_adc_cal.h"
 #include "SPIFFS.h"
-
+#include "Button2.h"
 
 ////////////////////////////////////////////////////////
 ////////CHANGE! USE LNURLPoS EXTENSION IN LNBITS////////
@@ -41,6 +41,7 @@ const float batteryMinVoltage = 3.73; // The minimum battery voltage that we tol
 ////////////////////////////////////////////////////////
 
 //////////////VARIABLES///////////////////
+Button2 btn1(BUTTON_1);
 int vref = 1100;
 String dataId = "";
 bool paid = false;
@@ -71,6 +72,7 @@ long timeOfLastInteraction = millis();
 
 #include "MyFont.h"
 
+#define BUTTON_1            35
 #define ADC_PIN             34
 #define BIGFONT &FreeMonoBold24pt7b
 #define MIDBIGFONT &FreeMonoBold18pt7b
@@ -149,6 +151,7 @@ void setup(void) {
   }
   ++bootCount;
   Serial.println("Boot count" + bootCount);
+  buttonInit();
 }
 
 void loop() {
@@ -364,6 +367,7 @@ void displayBatteryVoltage(bool forceUpdate)
     lastBatteryUpdate = currentTime;
     bool showBatteryVoltage = true;
     float batteryCurV = getInputVoltage();
+    Serial.println("Battery" + String(batteryCurV));
     float batteryAllowedRange = batteryMaxVoltage - batteryMinVoltage;
     float batteryCurVAboveMin = batteryCurV - batteryMinVoltage;
 
@@ -427,29 +431,26 @@ void maybeSleepDevice() {
     long currentTime = millis();
     if(currentTime > (timeOfLastInteraction + sleepTimer * 1000)) {
       sleepAnimation();
-//      if(isLilyGoKeyboard) {
-//        esp_sleep_enable_ext0_wakeup(GPIO_NUM_33,1); //1 = High, 0 = Low
-//      } else {
-//        //Configure Touchpad as wakeup source
-//        touchAttachInterrupt(T3, callback, 40);
-//        esp_sleep_enable_touchpad_wakeup();
-//      }
+      goToSleep();
 
-      int r = digitalRead(TFT_BL);
-      digitalWrite(TFT_BL, !r);
-
-      tft.writecommand(TFT_DISPOFF);
-      tft.writecommand(TFT_SLPIN);
-      //After using light sleep, you need to disable timer wake, because here use external IO port to wake up
-      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
-      // esp_sleep_enable_ext1_wakeup(GPIO_SEL_35, ESP_EXT1_WAKEUP_ALL_LOW);
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
-      delay(200);
-        
-      Serial.println("Going to sleep now");
-      esp_deep_sleep_start();
     }
   }
+}
+
+void goToSleep() {
+  int r = digitalRead(TFT_BL);
+  digitalWrite(TFT_BL, !r);
+  
+  tft.writecommand(TFT_DISPOFF);
+  tft.writecommand(TFT_SLPIN);
+  //After using light sleep, you need to disable timer wake, because here use external IO port to wake up
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+  // esp_sleep_enable_ext1_wakeup(GPIO_SEL_35, ESP_EXT1_WAKEUP_ALL_LOW);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
+  delay(200);
+  
+  Serial.println("Going to sleep now");
+  esp_deep_sleep_start();
 }
 
 void callback(){
@@ -489,7 +490,7 @@ void printSleepAnimationFrame(String text, int wait) {
  * Get the voltage going to the device
  */
 float getInputVoltage() {
-  float battery_voltage = 0;
+  float battery_voltage = 10;
   static uint64_t timeStamp = 0;
   if (millis() - timeStamp > 1000) {
     timeStamp = millis();
@@ -497,8 +498,8 @@ float getInputVoltage() {
     battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
     String voltageString = "Voltage :" + String(battery_voltage) + "V";
     Serial.println(voltageString);
+    return battery_voltage;
   }
-  delay(100);
   return battery_voltage;
 }
 
@@ -534,6 +535,20 @@ void loadConfig() {
   }
   Serial.println("qrScreenBrightness from config " + String(qrScreenBrightness));
   qrScreenBgColour = tft.color565(qrScreenBrightness, qrScreenBrightness, qrScreenBrightness);
+}
+
+void buttonInit()
+{
+    btn1.setPressedHandler([](Button2 & b) {
+        goToSleep();
+    });
+}
+
+void espDelay(int ms)
+{
+    esp_sleep_enable_timer_wakeup(ms * 1000);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    esp_light_sleep_start();
 }
 
 //////////LNURL AND CRYPTO///////////////
@@ -613,11 +628,4 @@ int xor_encrypt(uint8_t * output, size_t outlen, uint8_t * key, size_t keylen, u
   cur += 8;
   // return number of bytes written to the output
   return cur;
-}
-
-void espDelay(int ms)
-{
-    esp_sleep_enable_timer_wakeup(ms * 1000);
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-    esp_light_sleep_start();
 }
