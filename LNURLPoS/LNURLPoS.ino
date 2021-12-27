@@ -41,7 +41,6 @@ const float batteryMinVoltage = 3.73; // The minimum battery voltage that we tol
 ////////////////////////////////////////////////////////
 
 //////////////VARIABLES///////////////////
-Button2 btn1(BUTTON_1);
 int vref = 1100;
 String dataId = "";
 bool paid = false;
@@ -83,6 +82,7 @@ long timeOfLastInteraction = millis();
 
 TFT_eSPI tft = TFT_eSPI();
 SHA256 h;
+Button2 btn1(BUTTON_1);
 
 // QR screen colours
 uint16_t qrScreenBgColour = tft.color565(qrScreenBrightness, qrScreenBrightness, qrScreenBrightness);
