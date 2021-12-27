@@ -356,11 +356,9 @@ void displayBatteryVoltage(bool forceUpdate)
     (shouldDisplayBatteryLevel
     &&
     (currentTime > (lastBatteryUpdate + batteryLevelUpdatePeriod * 1000))
-    &&
-    !isPoweredExternally()
     )
     ||
-    (shouldDisplayBatteryLevel && forceUpdate && !isPoweredExternally())
+    (shouldDisplayBatteryLevel && forceUpdate)
     )
   {
     lastBatteryUpdate = currentTime;
