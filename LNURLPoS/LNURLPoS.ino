@@ -71,6 +71,7 @@ long timeOfLastInteraction = millis();
 
 #include "MyFont.h"
 
+#define ADC_PIN             34
 #define BIGFONT &FreeMonoBold24pt7b
 #define MIDBIGFONT &FreeMonoBold18pt7b
 #define MIDFONT &FreeMonoBold12pt7b
@@ -435,12 +436,6 @@ void maybeSleepDevice() {
 //      }
 
       int r = digitalRead(TFT_BL);
-      tft.fillScreen(TFT_BLACK);
-      tft.setFreeFont(SMALLFONT);
-      tft.setTextColor(TFT_GREEN, TFT_BLACK);
-      tft.setTextDatum(MC_DATUM);
-      tft.drawString("Press again to wake up",  tft.width() / 2, tft.height() / 2 );
-      espDelay(6000);
       digitalWrite(TFT_BL, !r);
 
       tft.writecommand(TFT_DISPOFF);
@@ -494,9 +489,17 @@ void printSleepAnimationFrame(String text, int wait) {
  * Get the voltage going to the device
  */
 float getInputVoltage() {
-    delay(100);
-    uint16_t v = analogRead(34); // DC pin
-    float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+  float battery_voltage = 0;
+  static uint64_t timeStamp = 0;
+  if (millis() - timeStamp > 1000) {
+    timeStamp = millis();
+    uint16_t v = analogRead(ADC_PIN);
+    battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+    String voltageString = "Voltage :" + String(battery_voltage) + "V";
+    Serial.println(voltageString);
+  }
+  delay(100);
+  return battery_voltage;
 }
 
 /**
