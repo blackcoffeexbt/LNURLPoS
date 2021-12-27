@@ -151,7 +151,6 @@ void setup(void) {
   }
   ++bootCount;
   Serial.println("Boot count" + bootCount);
-  buttonInit();
 }
 
 void loop() {
@@ -490,16 +489,12 @@ void printSleepAnimationFrame(String text, int wait) {
  * Get the voltage going to the device
  */
 float getInputVoltage() {
-  float battery_voltage = 10;
   static uint64_t timeStamp = 0;
-  if (millis() - timeStamp > 1000) {
-    timeStamp = millis();
-    uint16_t v = analogRead(ADC_PIN);
-    battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
-    String voltageString = "Voltage :" + String(battery_voltage) + "V";
-    Serial.println(voltageString);
-    return battery_voltage;
-  }
+  timeStamp = millis();
+  uint16_t v = analogRead(ADC_PIN);
+  float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
+  String voltageString = "Voltage :" + String(battery_voltage) + "V";
+  Serial.println(voltageString);
   return battery_voltage;
 }
 
@@ -535,13 +530,6 @@ void loadConfig() {
   }
   Serial.println("qrScreenBrightness from config " + String(qrScreenBrightness));
   qrScreenBgColour = tft.color565(qrScreenBrightness, qrScreenBrightness, qrScreenBrightness);
-}
-
-void buttonInit()
-{
-    btn1.setPressedHandler([](Button2 & b) {
-        goToSleep();
-    });
 }
 
 void espDelay(int ms)
