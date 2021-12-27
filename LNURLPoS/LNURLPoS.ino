@@ -26,13 +26,13 @@ bool isLilyGoKeyboard = true;
 
 //////////////SLEEP SETTINGS///////////////////
 bool isSleepEnabled = true;
-int sleepTimer = 30; // Time in seconds before the device goes to sleep
+int sleepTimer = 10; // Time in seconds before the device goes to sleep
 
 //////////////QR DISPLAY BRIGHTNESS///////////////////
 int qrScreenBrightness = 180; // 0 = min, 255 = max
 
 //////////////BATTERY///////////////////
-const bool shouldDisplayBatteryLevel = false; // Display the battery level on the display?
+const bool shouldDisplayBatteryLevel = true; // Display the battery level on the display?
 const float batteryMaxVoltage = 4.2; // The maximum battery voltage. Used for battery percentage calculation
 const float batteryMinVoltage = 3.73; // The minimum battery voltage that we tolerate before showing the warning
 
@@ -41,6 +41,7 @@ const float batteryMinVoltage = 3.73; // The minimum battery voltage that we tol
 ////////////////////////////////////////////////////////
 
 //////////////VARIABLES///////////////////
+int vref = 1100;
 String dataId = "";
 bool paid = false;
 bool shouldSaveConfig = false;
@@ -67,7 +68,6 @@ bool settle = false;
 String preparedURL;
 RTC_DATA_ATTR int bootCount = 0;
 long timeOfLastInteraction = millis();
-bool isPretendSleeping = false;
 
 #include "MyFont.h"
 
@@ -163,7 +163,6 @@ void loop() {
     char key = keypad.getKey();
     if (key != NO_KEY)
     {
-      isPretendSleeping = false;
       timeOfLastInteraction = millis();
       virtkey = String(key);
       if (virtkey == "#"){
@@ -362,7 +361,7 @@ void displayBatteryVoltage(bool forceUpdate)
     )
   {
     lastBatteryUpdate = currentTime;
-    bool showBatteryVoltage = false;
+    bool showBatteryVoltage = true;
     float batteryCurV = getInputVoltage();
     float batteryAllowedRange = batteryMaxVoltage - batteryMinVoltage;
     float batteryCurVAboveMin = batteryCurV - batteryMinVoltage;
@@ -423,27 +422,37 @@ void displayBatteryVoltage(bool forceUpdate)
  * if it should
  */
 void maybeSleepDevice() {
-  if(isSleepEnabled && !isPretendSleeping) {
+  if(isSleepEnabled) {
     long currentTime = millis();
     if(currentTime > (timeOfLastInteraction + sleepTimer * 1000)) {
       sleepAnimation();
-      // The device wont charge if it is sleeping, so when charging, do a pretend sleep
-      if(isPoweredExternally()) {
-        Serial.println("Pretend sleep now");
-        isPretendSleeping = true;
-        tft.fillScreen(TFT_BLACK);
-      }
-      else {
-        if(isLilyGoKeyboard) {
-          esp_sleep_enable_ext0_wakeup(GPIO_NUM_33,1); //1 = High, 0 = Low
-        } else {
-          //Configure Touchpad as wakeup source
-          touchAttachInterrupt(T3, callback, 40);
-          esp_sleep_enable_touchpad_wakeup();
-        }
-        Serial.println("Going to sleep now");
-        esp_deep_sleep_start();
-      }
+//      if(isLilyGoKeyboard) {
+//        esp_sleep_enable_ext0_wakeup(GPIO_NUM_33,1); //1 = High, 0 = Low
+//      } else {
+//        //Configure Touchpad as wakeup source
+//        touchAttachInterrupt(T3, callback, 40);
+//        esp_sleep_enable_touchpad_wakeup();
+//      }
+
+      int r = digitalRead(TFT_BL);
+      tft.fillScreen(TFT_BLACK);
+      tft.setFreeFont(SMALLFONT);
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setTextDatum(MC_DATUM);
+      tft.drawString("Press again to wake up",  tft.width() / 2, tft.height() / 2 );
+      espDelay(6000);
+      digitalWrite(TFT_BL, !r);
+
+      tft.writecommand(TFT_DISPOFF);
+      tft.writecommand(TFT_SLPIN);
+      //After using light sleep, you need to disable timer wake, because here use external IO port to wake up
+      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+      // esp_sleep_enable_ext1_wakeup(GPIO_SEL_35, ESP_EXT1_WAKEUP_ALL_LOW);
+      esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
+      delay(200);
+        
+      Serial.println("Going to sleep now");
+      esp_deep_sleep_start();
     }
   }
 }
@@ -486,8 +495,8 @@ void printSleepAnimationFrame(String text, int wait) {
  */
 float getInputVoltage() {
     delay(100);
-    uint16_t v1 = analogRead(34);
-    return ((float)v1 / 4095.0f) * 2.0f * 3.3f * (1100.0f / 1000.0f);
+    uint16_t v = analogRead(34); // DC pin
+    float battery_voltage = ((float)v / 4095.0) * 2.0 * 3.3 * (vref / 1000.0);
 }
 
 /**
@@ -601,4 +610,11 @@ int xor_encrypt(uint8_t * output, size_t outlen, uint8_t * key, size_t keylen, u
   cur += 8;
   // return number of bytes written to the output
   return cur;
+}
+
+void espDelay(int ms)
+{
+    esp_sleep_enable_timer_wakeup(ms * 1000);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    esp_light_sleep_start();
 }
