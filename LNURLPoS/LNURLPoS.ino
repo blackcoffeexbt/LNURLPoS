@@ -34,7 +34,7 @@ int qrScreenBrightness = 180; // 0 = min, 255 = max
 //////////////BATTERY///////////////////
 const bool shouldDisplayBatteryLevel = true; // Display the battery level on the display?
 const float batteryMaxVoltage = 4.2; // The maximum battery voltage. Used for battery percentage calculation
-const float batteryMinVoltage = 3.73; // The minimum battery voltage that we tolerate before showing the warning
+const float batteryMinVoltage = 3.2; // The minimum battery voltage that we tolerate before showing the warning
 
 ////////////////////////////////////////////////////////
 ////Note: See lines 75, 97, to adjust to keypad size////
