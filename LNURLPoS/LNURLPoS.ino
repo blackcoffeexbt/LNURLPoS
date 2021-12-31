@@ -26,7 +26,7 @@ bool isLilyGoKeyboard = true;
 
 //////////////SLEEP SETTINGS///////////////////
 bool isSleepEnabled = true;
-int sleepTimer = 10; // Time in seconds before the device goes to sleep
+int sleepTimer = 30; // Time in seconds before the device goes to sleep
 
 //////////////QR DISPLAY BRIGHTNESS///////////////////
 int qrScreenBrightness = 180; // 0 = min, 255 = max
@@ -72,6 +72,7 @@ long timeOfLastInteraction = millis();
 #include "MyFont.h"
 
 #define BUTTON_1            35
+#define BUTTON_2            0
 #define ADC_PIN             34
 #define BIGFONT &FreeMonoBold24pt7b
 #define MIDBIGFONT &FreeMonoBold18pt7b
@@ -83,6 +84,7 @@ long timeOfLastInteraction = millis();
 TFT_eSPI tft = TFT_eSPI();
 SHA256 h;
 Button2 btn1(BUTTON_1);
+Button2 btn2(BUTTON_2);
 
 // QR screen colours
 uint16_t qrScreenBgColour = tft.color565(qrScreenBrightness, qrScreenBrightness, qrScreenBrightness);
@@ -123,6 +125,9 @@ void setup(void) {
   Serial.begin(9600);  
   pinMode (2, OUTPUT);
   digitalWrite(2, HIGH);
+
+  buttonInit();
+  
   btStop();
   WiFi.mode(WIFI_OFF);
   h.begin();
@@ -131,7 +136,7 @@ void setup(void) {
   //Set to 3 for bigger keypad
   tft.setRotation(1);
 
-    Serial.println("mounting FS...");
+  Serial.println("mounting FS...");
     
   while(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
     Serial.println("failed to mount FS");
@@ -143,7 +148,7 @@ void setup(void) {
   if(bootCount == 0)
   {
     logo();
-    delay(3000);
+    delay(500);
   }
   else
   {
@@ -161,6 +166,7 @@ void loop() {
   bool cntr = false;
 
   while (cntr != true){
+    buttonLoop();
     maybeSleepDevice();
     displayBatteryVoltage(false);
     char key = keypad.getKey();
@@ -429,7 +435,6 @@ void maybeSleepDevice() {
     if(currentTime > (timeOfLastInteraction + sleepTimer * 1000)) {
       sleepAnimation();
       goToSleep();
-
     }
   }
 }
@@ -442,8 +447,8 @@ void goToSleep() {
   tft.writecommand(TFT_SLPIN);
   //After using light sleep, you need to disable timer wake, because here use external IO port to wake up
   esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
-  // esp_sleep_enable_ext1_wakeup(GPIO_SEL_35, ESP_EXT1_WAKEUP_ALL_LOW);
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
+  esp_sleep_enable_ext1_wakeup(GPIO_SEL_33 ,ESP_EXT1_WAKEUP_ANY_HIGH);
   delay(200);
   
   Serial.println("Going to sleep now");
@@ -457,11 +462,11 @@ void callback(){
  * Awww. Show the go to sleep animation
  */
 void sleepAnimation() {
-    printSleepAnimationFrame("(o.o)", 500);
-    printSleepAnimationFrame("(-.-)", 500);
-    printSleepAnimationFrame("(-.-)z", 250);
-    printSleepAnimationFrame("(-.-)zz", 250);
-    printSleepAnimationFrame("(-.-)zzz", 250);
+    printSleepAnimationFrame("(o.o)", 400);
+    printSleepAnimationFrame("(-.-)", 400);
+    printSleepAnimationFrame("(-.-)z", 200);
+    printSleepAnimationFrame("(-.-)zz", 200);
+    printSleepAnimationFrame("(-.-)zzz", 200);
     tft.fillScreen(TFT_BLACK);
 }
 
@@ -501,7 +506,7 @@ float getInputVoltage() {
  */
 bool isPoweredExternally() {
   float inputVoltage = getInputVoltage();
-  if(inputVoltage > 4.5)
+  if(inputVoltage > 4.3)
   {
     return true;
   }
@@ -535,6 +540,25 @@ void espDelay(int ms)
     esp_sleep_enable_timer_wakeup(ms * 1000);
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
     esp_light_sleep_start();
+}
+
+/**
+ * Check for a press on the ttgo physical buttons
+ */
+void buttonLoop()
+{
+    btn1.loop();
+}
+
+/**
+ * Set up the pyshical buttons on the ttgo
+ */
+void buttonInit()
+{
+  btn1.setPressedHandler([](Button2 & b) {
+    sleepAnimation();
+    goToSleep();
+  });
 }
 
 //////////LNURL AND CRYPTO///////////////
